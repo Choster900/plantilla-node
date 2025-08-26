@@ -1,0 +1,45 @@
+{
+  "name": "plantilla-node",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "nodemon src/index.ts",
+    "clean": "rmdir /s /q dist 2>nul || echo \"Directorio dist no existe\"",
+    "validate-env": "ts-node src/scripts/validate-env.ts",
+    "db:create": "ts-node src/scripts/create-database.ts",
+    "migrate": "ts-node src/scripts/migrate.ts",
+    "migrate:rollback": "ts-node src/scripts/migrate-rollback.ts",
+    "migrate:status": "ts-node src/scripts/migrate-status.ts",
+    "migration:generate": "ts-node src/scripts/generate-migration.ts generate",
+    "migration:generate:all": "ts-node src/scripts/generate-migration.ts generate --all",
+    "migration:list": "ts-node src/scripts/generate-migration.ts list",
+    "seed": "ts-node src/scripts/seed.ts",
+    "seed:status": "ts-node src/scripts/seed.ts status",
+    "lint": "echo \"No linter configured yet\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "commander": "^14.0.0",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "joi": "^18.0.1",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
+    "@types/express": "^5.0.3",
+    "@types/joi": "^17.2.2",
+    "@types/node": "^24.3.0",
+    "@types/pg": "^8.15.5",
+    "nodemon": "^3.1.10",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  }
+}
