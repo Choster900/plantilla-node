@@ -50,15 +50,8 @@ async function createDatabase() {
 
     if (error.code === '28P01') {
       console.error('Authentication error: incorrect credentials');
-      console.log('\nSolutions:');
-      console.log('   1. Check credentials in .env file');
-      console.log('   2. Make sure PostgreSQL is running');
-      console.log('   3. Verify user has permissions to create databases');
     } else if (error.code === 'ECONNREFUSED') {
       console.error('Cannot connect to PostgreSQL');
-      console.log('\nSolutions:');
-      console.log('   1. Make sure PostgreSQL is running');
-      console.log('   2. Check host and port in .env file');
     } else {
       console.error(error.message);
     }
