@@ -1,4 +1,5 @@
-import { query } from '../database/connection';
+import { sequelize } from './sequelize';
+import { QueryTypes } from 'sequelize';
 
 export interface SeederInterface {
   name: string;
@@ -17,11 +18,15 @@ export abstract class BaseSeeder implements SeederInterface {
    */
   async hasBeenExecuted(): Promise<boolean> {
     try {
-      const result = await query(
-        'SELECT COUNT(*) as count FROM seeders WHERE name = $1',
-        [this.name]
-      );
-      return parseInt(result.rows[0].count) > 0;
+      const results = await sequelize.query(
+        'SELECT COUNT(*) as count FROM seeders WHERE name = :name',
+        {
+          replacements: { name: this.name },
+          type: QueryTypes.SELECT
+        }
+      ) as { count: string }[];
+      
+      return parseInt(results[0].count) > 0;
     } catch (error) {
       console.error('Error checking seeder execution status:', error);
       return false;
@@ -33,9 +38,15 @@ export abstract class BaseSeeder implements SeederInterface {
    */
   async markAsExecuted(): Promise<void> {
     try {
-      await query(
-        'INSERT INTO seeders (name, description) VALUES ($1, $2)',
-        [this.name, this.description]
+      await sequelize.query(
+        'INSERT INTO seeders (name, description) VALUES (:name, :description)',
+        {
+          replacements: { 
+            name: this.name, 
+            description: this.description 
+          },
+          type: QueryTypes.INSERT
+        }
       );
     } catch (error) {
       console.error('Error marking seeder as executed:', error);

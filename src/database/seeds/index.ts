@@ -1,14 +1,17 @@
 // Export all seeders
-export { profilesSeeder } from './profiles';
-export { usersSeeder } from './users';
+export { ProfilesSeeder } from './profiles';
+export { UsersSeeder } from './users';
 
 // Add new seeders here as you create them
-// export { productsSeeder } from './products';
-// export { ordersSeeder } from './orders';
+// export { ProductsSeeder } from './products';
+// export { OrdersSeeder } from './orders';
 
-// Export all seeders as an array for bulk execution
-import { profilesSeeder } from './profiles';
-import { usersSeeder } from './users';
+// Create instances for export
+import { ProfilesSeeder } from './profiles';
+import { UsersSeeder } from './users';
+
+export const profilesSeeder = new ProfilesSeeder();
+export const usersSeeder = new UsersSeeder();
 
 export const allSeeders = [
   profilesSeeder,

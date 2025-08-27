@@ -1,12 +1,12 @@
 import { BaseSeeder } from '../BaseSeeder';
-import { query } from '../connection';
+import { Profile } from '../../models/Profile';
 
 export class ProfilesSeeder extends BaseSeeder {
   name = 'profiles_seeder';
   description = 'Create default user profiles';
 
   async run(): Promise<void> {
-    // Insert default profiles
+    // Insert default profiles using Sequelize model
     const profiles = [
       {
         name: 'admin',
@@ -29,7 +29,8 @@ export class ProfilesSeeder extends BaseSeeder {
         name: 'user',
         description: 'Standard user with basic permissions',
         permissions: {
-          profile: ['read', 'update']
+          users: ['read'],
+          content: ['read']
         }
       },
       {
@@ -39,31 +40,28 @@ export class ProfilesSeeder extends BaseSeeder {
           content: ['read']
         }
       }
-    ];
+    ] as Array<{
+      name: string;
+      description: string;
+      permissions: Record<string, string[]>;
+    }>;
 
     console.log('Inserting profiles...');
 
-    for (const profile of profiles) {
+    for (const profileData of profiles) {
       // Check if profile already exists
-      const existing = await query(
-        'SELECT id FROM profiles WHERE name = $1',
-        [profile.name]
-      );
+      const existingProfile = await Profile.findOne({
+        where: { name: profileData.name }
+      });
 
-      if (existing.rows.length === 0) {
-        await query(
-          'INSERT INTO profiles (name, description, permissions, is_active) VALUES ($1, $2, $3, $4)',
-          [profile.name, profile.description, JSON.stringify(profile.permissions), true]
-        );
-        console.log(`Profile "${profile.name}" created successfully`);
+      if (!existingProfile) {
+        await Profile.create(profileData);
+        console.log(`Profile "${profileData.name}" created successfully`);
       } else {
-        console.log(`Profile "${profile.name}" already exists, skipping...`);
+        console.log(`Profile "${profileData.name}" already exists, skipping...`);
       }
     }
 
     console.log('Profiles seeding completed');
   }
 }
-
-// Export the seeder instance
-export const profilesSeeder = new ProfilesSeeder();

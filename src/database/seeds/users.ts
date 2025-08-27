@@ -1,5 +1,6 @@
 import { BaseSeeder } from '../BaseSeeder';
-import { query } from '../connection';
+import { User } from '../../models/User';
+import { Profile } from '../../models/Profile';
 import bcrypt from 'bcrypt';
 
 export class UsersSeeder extends BaseSeeder {
@@ -48,53 +49,47 @@ export class UsersSeeder extends BaseSeeder {
     for (const userData of testUsers) {
       try {
         // Check if user already exists
-        const existingUser = await query(
-          'SELECT id FROM users WHERE email = $1 OR username = $2',
-          [userData.email, userData.username]
-        );
+        const existingUser = await User.findOne({
+          where: { email: userData.email }
+        });
 
-        if (existingUser.rows.length > 0) {
-          console.log(`User ${userData.username} already exists, skipping...`);
+        if (existingUser) {
+          console.log(`User "${userData.email}" already exists, skipping...`);
           continue;
         }
 
-        // Get profile ID
-        const profileResult = await query(
-          'SELECT id FROM profiles WHERE name = $1',
-          [userData.profile_name]
-        );
+        // Find the profile
+        const profile = await Profile.findOne({
+          where: { name: userData.profile_name }
+        });
 
-        const profile_id = profileResult.rows.length > 0 ? profileResult.rows[0].id : null;
+        if (!profile) {
+          console.warn(`Profile "${userData.profile_name}" not found for user ${userData.email}, skipping...`);
+          continue;
+        }
 
         // Hash password
         const hashedPassword = await bcrypt.hash(userData.password, 10);
 
         // Create user
-        await query(
-          `INSERT INTO users (email, username, password_hash, first_name, last_name, profile_id, is_active, is_verified)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            userData.email,
-            userData.username,
-            hashedPassword,
-            userData.first_name,
-            userData.last_name,
-            profile_id,
-            true,
-            true
-          ]
-        );
+        const newUser = await User.create({
+          email: userData.email,
+          username: userData.username,
+          password_hash: hashedPassword,
+          first_name: userData.first_name,
+          last_name: userData.last_name,
+          profile_id: profile.id,
+          is_active: true,
+          is_verified: true
+        });
 
-        console.log(`User ${userData.username} created successfully with profile ${userData.profile_name}`);
+        console.log(`User "${userData.email}" created successfully with ID: ${newUser.id}`);
+
       } catch (error) {
-        console.error(`Error creating user ${userData.username}:`, error);
-        throw error;
+        console.error(`Error creating user "${userData.email}":`, error);
       }
     }
 
-    console.log('Users seeding completed');
+    console.log('User seeding completed');
   }
 }
-
-// Export the seeder instance
-export const usersSeeder = new UsersSeeder();
