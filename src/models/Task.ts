@@ -95,23 +95,28 @@ export class Task extends Model<Task, CreateTaskData> {
     // Static methods for CRUD operations
 
     /**
-     * Get all tasks, optionally filtered by list_id
+     * Get all tasks, optionally filtered by list_id and filtered by user
      */
-    static async getAllTasks(listId?: string): Promise<Task[]> {
+    static async getAllTasks(listId?: string, userId?: string): Promise<Task[]> {
         try {
             const whereClause: any = {};
             if (listId) whereClause.list_id = listId;
 
+            const includeClause: any = [];
+            if (userId) {
+                includeClause.push({
+                    model: List,
+                    as: 'list',
+                    where: { owner_id: userId },
+                    required: true,
+                    attributes: ['id', 'name', 'owner_id']
+                });
+            }
+
             return await Task.findAll({
                 where: whereClause,
+                include: includeClause,
                 order: [['position', 'ASC'], ['created_at', 'DESC']]
-                // include: [
-                //     {
-                //         model: Subtask,
-                //         as: 'subtasks',
-                //         order: [['position', 'ASC']]
-                //     }
-                // ]
             });
         } catch (error: any) {
             console.error('Sequelize error in getAllTasks:', error);
@@ -223,23 +228,28 @@ export class Task extends Model<Task, CreateTaskData> {
     }
 
     /**
-     * Get tasks by status
+     * Get tasks by status and filtered by user
      */
-    static async getTasksByStatus(status: 'pending' | 'in_progress' | 'completed' | 'cancelled', listId?: string): Promise<Task[]> {
+    static async getTasksByStatus(status: 'pending' | 'in_progress' | 'completed' | 'cancelled', listId?: string, userId?: string): Promise<Task[]> {
         try {
             const whereClause: any = { status };
             if (listId) whereClause.list_id = listId;
 
+            const includeClause: any = [];
+            if (userId) {
+                includeClause.push({
+                    model: List,
+                    as: 'list',
+                    where: { owner_id: userId },
+                    required: true,
+                    attributes: ['id', 'name', 'owner_id']
+                });
+            }
+
             return await Task.findAll({
                 where: whereClause,
+                include: includeClause,
                 order: [['position', 'ASC'], ['created_at', 'DESC']]
-                // include: [
-                //     {
-                //         model: Subtask,
-                //         as: 'subtasks',
-                //         order: [['position', 'ASC']]
-                //     }
-                // ]
             });
         } catch (error) {
             console.error('Error getting tasks by status:', error);

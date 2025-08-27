@@ -12,6 +12,7 @@ import {
     BelongsTo,
 } from 'sequelize-typescript';
 import { Task } from './Task';
+import { List } from './List';
 
 export interface CreateSubtaskData {
     task_id: string;
@@ -71,15 +72,33 @@ export class Subtask extends Model<Subtask, CreateSubtaskData> {
     // Static methods for CRUD operations
 
     /**
-     * Get all subtasks, optionally filtered by task_id
+     * Get all subtasks, optionally filtered by task_id and filtered by user
      */
-    static async getAllSubtasks(taskId?: string): Promise<Subtask[]> {
+    static async getAllSubtasks(taskId?: string, userId?: string): Promise<Subtask[]> {
         try {
             const whereClause: any = {};
             if (taskId) whereClause.task_id = taskId;
 
+            const includeClause: any = [];
+            if (userId) {
+                includeClause.push({
+                    model: Task,
+                    as: 'task',
+                    required: true,
+                    attributes: ['id', 'title', 'list_id'],
+                    include: [{
+                        model: List,
+                        as: 'list',
+                        where: { owner_id: userId },
+                        required: true,
+                        attributes: ['id', 'name', 'owner_id']
+                    }]
+                });
+            }
+
             return await Subtask.findAll({
                 where: whereClause,
+                include: includeClause,
                 order: [['position', 'ASC'], ['created_at', 'ASC']]
             });
         } catch (error: any) {
@@ -175,15 +194,33 @@ export class Subtask extends Model<Subtask, CreateSubtaskData> {
     }
 
     /**
-     * Get subtasks by completion status
+     * Get subtasks by completion status and filtered by user
      */
-    static async getSubtasksByStatus(done: boolean, taskId?: string): Promise<Subtask[]> {
+    static async getSubtasksByStatus(done: boolean, taskId?: string, userId?: string): Promise<Subtask[]> {
         try {
             const whereClause: any = { done };
             if (taskId) whereClause.task_id = taskId;
 
+            const includeClause: any = [];
+            if (userId) {
+                includeClause.push({
+                    model: Task,
+                    as: 'task',
+                    required: true,
+                    attributes: ['id', 'title', 'list_id'],
+                    include: [{
+                        model: List,
+                        as: 'list',
+                        where: { owner_id: userId },
+                        required: true,
+                        attributes: ['id', 'name', 'owner_id']
+                    }]
+                });
+            }
+
             return await Subtask.findAll({
                 where: whereClause,
+                include: includeClause,
                 order: [['position', 'ASC'], ['created_at', 'ASC']]
             });
         } catch (error) {
