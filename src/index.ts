@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import { config } from './config';
 import { testConnection } from './database/connection';
 import usersRouter from './routes/users';
@@ -6,6 +7,14 @@ import profilesRouter from './routes/profiles';
 import authRouter from './routes/auth';
 
 const app = express();
+
+// CORS configuration
+app.use(cors({
+  origin: config.api.corsOrigin,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 // Middleware to parse JSON
 app.use(express.json());
@@ -26,18 +35,6 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-// Example route
-app.get('/api/hello', (req: Request, res: Response) => {
-  res.json({
-    message: 'Hello from Express with TypeScript!',
-    status: 'success',
-    environment: config.env,
-    database: {
-      host: config.database.host,
-      name: config.database.name
-    }
-  });
-});
 
 // Route to show configuration (development only)
 app.get('/api/config', (req: Request, res: Response) => {
