@@ -1,16 +1,16 @@
 # Node.js Project Template
 
-A complete Node.js project template with Express, TypeScript, PostgreSQL, and automatic migration generation.
+A complete Node.js project template with Express, TypeScript, PostgreSQL, and Sequelize ORM.
 
 ## Features
 
 - **Express.js** with TypeScript
-- **PostgreSQL** database with connection pooling
+- **PostgreSQL** database with Sequelize ORM
 - **Environment validation** with Joi
-- **Database migrations** system
-- **Automatic migration generation** from table definitions
+- **Sequelize migrations** system with templates
 - **User authentication** system with bcrypt
 - **RESTful API** with CRUD operations
+- **DTOs** for type-safe data transfer
 - **Comprehensive error handling**
 
 ## Getting Started
@@ -47,57 +47,101 @@ npm run validate-env
 npm run db:create
 ```
 
-2. Generate migrations from table definitions:
-```bash
-npm run migration:generate
-```
-
-3. Run migrations:
+2. Run existing migrations:
 ```bash
 npm run migrate
 ```
 
-4. Check migration status:
+3. Check migration status:
 ```bash
 npm run migrate:status
 ```
 
-## Table Definitions
+## Sequelize Migrations
 
-This project uses a class-based approach to define database tables. Table definitions are located in `src/tables/`.
+This project uses Sequelize for database operations and migrations. The migration system provides templates for common operations.
 
-### Creating a New Table
+### Creating a New Migration
 
-1. Create a new file in `src/tables/` (e.g., `ProductTable.ts`):
+Generate migrations using the built-in templates:
+
+```bash
+# Create a new table
+npx ts-node src/scripts/generate-migration.ts create create_posts_table --template create-table
+
+# Add a column
+npx ts-node src/scripts/generate-migration.ts create add_phone_to_users --template add-column
+
+# Modify a column
+npx ts-node src/scripts/generate-migration.ts create modify_user_email --template modify-column
+
+# Drop a column
+npx ts-node src/scripts/generate-migration.ts create remove_old_field --template drop-column
+
+# Custom migration
+npx ts-node src/scripts/generate-migration.ts create custom_changes --template custom
+```
+
+### Available Templates
+
+1. **create-table**: Creates a new table with basic structure
+2. **add-column**: Adds a new column to an existing table
+3. **modify-column**: Modifies an existing column
+4. **drop-column**: Removes a column from a table
+5. **custom**: Empty template for custom migrations
+
+### Migration Commands
+
+```bash
+# List existing migrations
+npx ts-node src/scripts/generate-migration.ts list
+
+# Show template help
+npx ts-node src/scripts/generate-migration.ts help-templates
+
+# Run migrations
+npm run migrate
+
+# Rollback last migration
+npm run migrate:rollback
+
+# Check migration status
+npm run migrate:status
+```
+
+## Sequelize Models
+
+Models are defined using Sequelize with TypeScript decorators in `src/models/`.
+
+### Example Model
 
 ```typescript
-import { BaseTable, ColumnDefinition, IndexDefinition } from '../database/BaseTable';
+import { Table, Column, Model, DataType, HasOne } from 'sequelize-typescript';
+import { Profile } from './Profile';
 
-export class ProductTable extends BaseTable {
-  tableName = 'products';
+@Table({
+  tableName: 'users',
+  timestamps: true,
+  underscored: true
+})
+export class User extends Model {
+  @Column({
+    type: DataType.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  })
+  id!: number;
 
-  columns: ColumnDefinition[] = [
-    {
-      name: 'id',
-      type: 'SERIAL',
-      primaryKey: true,
-      autoIncrement: true,
-      nullable: false
-    },
-    {
-      name: 'name',
-      type: 'VARCHAR',
-      length: 255,
-      nullable: false
-    },
-    {
-      name: 'price',
-      type: 'DECIMAL',
-      nullable: false
-    },
-    {
-      name: 'created_at',
-      type: 'TIMESTAMP',
+  @Column({
+    type: DataType.STRING(255),
+    allowNull: false,
+    unique: true
+  })
+  email!: string;
+
+  @HasOne(() => Profile, 'user_id')
+  profile?: Profile;
+}
       nullable: false,
       default: 'CURRENT_TIMESTAMP'
     }

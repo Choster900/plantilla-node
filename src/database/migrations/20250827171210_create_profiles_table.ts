@@ -1,27 +1,59 @@
 import { Migration } from '../migrator';
+import { DataTypes } from 'sequelize';
 
 export const migration: Migration = {
   id: '20250827171210_create_profiles_table',
   description: 'create profiles table',
-  up: async (client) => {
-    await client.query(`
-CREATE TABLE profiles (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(100) NOT NULL UNIQUE,
-  description TEXT,
-  permissions JSONB NOT NULL DEFAULT '{}',
-  is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('profiles', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+        allowNull: false
+      },
+      name: {
+        type: DataTypes.STRING(100),
+        allowNull: false,
+        unique: true
+      },
+      description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      permissions: {
+        type: DataTypes.JSONB,
+        allowNull: false,
+        defaultValue: {}
+      },
+      is_active: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true
+      },
+      created_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      },
+      updated_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      }
+    });
 
-CREATE UNIQUE INDEX idx_profiles_name ON profiles (name);
-CREATE INDEX idx_profiles_active ON profiles (is_active);
-    `);
+    // Create indexes
+    await queryInterface.addIndex('profiles', ['name'], {
+      unique: true,
+      name: 'idx_profiles_name'
+    });
+
+    await queryInterface.addIndex('profiles', ['is_active'], {
+      name: 'idx_profiles_active'
+    });
   },
-  down: async (client) => {
-    await client.query(`
-DROP TABLE IF EXISTS profiles;
-    `);
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.dropTable('profiles');
   }
 };

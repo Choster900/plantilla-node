@@ -12,9 +12,7 @@
     "migrate": "ts-node src/scripts/migrate.ts",
     "migrate:rollback": "ts-node src/scripts/migrate-rollback.ts",
     "migrate:status": "ts-node src/scripts/migrate-status.ts",
-    "migration:generate": "ts-node src/scripts/generate-migration.ts generate",
-    "migration:generate:all": "ts-node src/scripts/generate-migration.ts generate --all",
-    "migration:list": "ts-node src/scripts/generate-migration.ts list",
+    "generate:migration": "ts-node src/scripts/generate-migration.ts",
     "seed": "ts-node src/scripts/seed.ts",
     "seed:status": "ts-node src/scripts/seed.ts status",
     "lint": "echo \"No linter configured yet\"",
@@ -40,7 +38,9 @@
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
-    "sequelize-typescript": "^2.1.6"
+    "sequelize-cli": "^6.6.3",
+    "sequelize-typescript": "^2.1.6",
+    "umzug": "^3.8.2"
   },
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",

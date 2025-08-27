@@ -1,24 +1,44 @@
 import { Migration } from '../migrator';
+import { DataTypes } from 'sequelize';
 
 export const migration: Migration = {
   id: '20250827171210_create_seeders_table',
   description: 'create seeders table',
-  up: async (client) => {
-    await client.query(`
-CREATE TABLE seeders (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(255) NOT NULL UNIQUE,
-  description TEXT,
-  executed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
+  up: async (queryInterface, Sequelize) => {
+    await queryInterface.createTable('seeders', {
+      id: {
+        type: DataTypes.INTEGER,
+        primaryKey: true,
+        autoIncrement: true,
+        allowNull: false
+      },
+      name: {
+        type: DataTypes.STRING(255),
+        allowNull: false,
+        unique: true
+      },
+      description: {
+        type: DataTypes.TEXT,
+        allowNull: true
+      },
+      executed_at: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        defaultValue: Sequelize.literal('CURRENT_TIMESTAMP')
+      }
+    });
 
-CREATE UNIQUE INDEX idx_seeders_name ON seeders (name);
-CREATE INDEX idx_seeders_executed_at ON seeders (executed_at);
-    `);
+    // Create indexes
+    await queryInterface.addIndex('seeders', ['name'], {
+      unique: true,
+      name: 'idx_seeders_name'
+    });
+
+    await queryInterface.addIndex('seeders', ['executed_at'], {
+      name: 'idx_seeders_executed_at'
+    });
   },
-  down: async (client) => {
-    await client.query(`
-DROP TABLE IF EXISTS seeders;
-    `);
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.dropTable('seeders');
   }
 };

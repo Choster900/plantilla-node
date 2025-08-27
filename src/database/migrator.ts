@@ -1,14 +1,15 @@
-import { PoolClient } from 'pg';
+import { QueryInterface, Sequelize } from 'sequelize';
 import { query, transaction } from './connection';
+import { sequelize } from './sequelize';
 import fs from 'fs';
 import path from 'path';
 
-// Interface to define a migration
+// Interface to define a migration using Sequelize
 export interface Migration {
     id: string;
     description: string;
-    up: (client: PoolClient) => Promise<void>;
-    down: (client: PoolClient) => Promise<void>;
+    up: (queryInterface: QueryInterface, Sequelize: any) => Promise<void>;
+    down: (queryInterface: QueryInterface, Sequelize: any) => Promise<void>;
 }
 
 // Create migrations table if it doesn't exist
@@ -48,7 +49,8 @@ export const removeMigrationRecord = async (id: string): Promise<void> => {
 export const runMigration = async (migration: Migration): Promise<void> => {
     await transaction(async (client) => {
         console.log(`Running migration: ${migration.id} - ${migration.description}`);
-        await migration.up(client);
+        const queryInterface = sequelize.getQueryInterface();
+        await migration.up(queryInterface, Sequelize);
         await markMigrationAsExecuted(migration.id, migration.description);
         console.log(`Migration completed: ${migration.id}`);
     });
@@ -58,7 +60,8 @@ export const runMigration = async (migration: Migration): Promise<void> => {
 export const rollbackMigration = async (migration: Migration): Promise<void> => {
     await transaction(async (client) => {
         console.log(`Rolling back migration: ${migration.id} - ${migration.description}`);
-        await migration.down(client);
+        const queryInterface = sequelize.getQueryInterface();
+        await migration.down(queryInterface, Sequelize);
         await removeMigrationRecord(migration.id);
         console.log(`Migration rolled back: ${migration.id}`);
     });
