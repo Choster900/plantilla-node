@@ -57,6 +57,33 @@ npm run migrate
 npm run migrate:status
 ```
 
+## Project Architecture
+
+This project follows a clean architecture pattern with the following structure:
+
+```
+src/
+├── models/          # Sequelize models with TypeScript decorators
+├── dtos/           # Data Transfer Objects for type-safe API contracts
+├── routes/         # Express route handlers
+├── services/       # Business logic layer
+├── middleware/     # Express middleware (auth, validation, etc.)
+├── database/       # Database configuration and migrations
+│   ├── migrations/ # Sequelize migration files
+│   ├── seeds/      # Database seeders
+│   └── sequelize.ts # Sequelize configuration
+├── scripts/        # Utility scripts (migrate, seed, etc.)
+└── config/         # Application configuration
+```
+
+### Key Components
+
+- **Models**: Define database schema using Sequelize decorators
+- **DTOs**: Type-safe interfaces for API requests/responses
+- **Migrations**: Database schema changes using Sequelize API
+- **Services**: Business logic separated from route handlers
+- **Middleware**: Cross-cutting concerns like authentication
+
 ## Sequelize Migrations
 
 This project uses Sequelize for database operations and migrations. The migration system provides templates for common operations.
