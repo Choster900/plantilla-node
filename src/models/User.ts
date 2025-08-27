@@ -1,20 +1,19 @@
-import { query } from '../database/connection';
-
-export interface User {
-  id?: number;
-  email: string;
-  username: string;
-  password_hash: string;
-  first_name?: string;
-  last_name?: string;
-  profile_id?: number;
-  is_active?: boolean;
-  is_verified?: boolean;
-  avatar_url?: string;
-  last_login_at?: Date;
-  created_at?: Date;
-  updated_at?: Date;
-}
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  AutoIncrement,
+  AllowNull,
+  Default,
+  CreatedAt,
+  UpdatedAt,
+  BelongsTo,
+  ForeignKey,
+  Unique,
+} from 'sequelize-typescript';
+import { Profile } from './Profile';
 
 export interface CreateUserData {
   email: string;
@@ -37,252 +36,382 @@ export interface UpdateUserData {
   last_login_at?: Date;
 }
 
-export class UserModel {
-  // Create a new user
-  static async create(userData: CreateUserData): Promise<User> {
-    const {
-      email,
-      username,
-      password_hash,
-      first_name,
-      last_name,
-      profile_id
-    } = userData;
+interface UserCreationAttributes {
+  email: string;
+  username: string;
+  password_hash: string;
+  first_name?: string;
+  last_name?: string;
+  profile_id?: number;
+  is_active?: boolean;
+  is_verified?: boolean;
+  avatar_url?: string;
+}
 
-    const result = await query(
-      `INSERT INTO users (email, username, password_hash, first_name, last_name, profile_id)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING *`,
-      [email, username, password_hash, first_name, last_name, profile_id]
-    );
+@Table({
+  tableName: 'users',
+  timestamps: true,
+  underscored: true,
+})
+export class User extends Model<User, UserCreationAttributes> {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  id!: number;
 
-    return result.rows[0];
+  @Unique
+  @AllowNull(false)
+  @Column(DataType.STRING(255))
+  email!: string;
+
+  @Unique
+  @AllowNull(false)
+  @Column(DataType.STRING(50))
+  username!: string;
+
+  @AllowNull(false)
+  @Column(DataType.STRING(255))
+  password_hash!: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING(100))
+  first_name?: string;
+
+  @AllowNull(true)
+  @Column(DataType.STRING(100))
+  last_name?: string;
+
+  @ForeignKey(() => Profile)
+  @AllowNull(true)
+  @Column(DataType.INTEGER)
+  profile_id?: number;
+
+  @Default(true)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  is_active!: boolean;
+
+  @Default(false)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  is_verified!: boolean;
+
+  @AllowNull(true)
+  @Column(DataType.STRING(500))
+  avatar_url?: string;
+
+  @AllowNull(true)
+  @Column(DataType.DATE)
+  last_login_at?: Date;
+
+  @CreatedAt
+  @Column(DataType.DATE)
+  created_at!: Date;
+
+  @UpdatedAt
+  @Column(DataType.DATE)
+  updated_at!: Date;
+
+  @BelongsTo(() => require('./Profile').Profile, 'profile_id')
+  profile?: any;
+
+  /**
+   * Create a new user
+   */
+  static async createUser(userData: CreateUserData): Promise<User> {
+    try {
+      const user = await User.create(userData);
+      return user;
+    } catch (error) {
+      console.error('Error creating user:', error);
+      throw new Error('Failed to create user');
+    }
   }
 
-  // Find user by ID
-  static async findById(id: number): Promise<User | null> {
-    const result = await query(
-      'SELECT * FROM users WHERE id = $1',
-      [id]
-    );
-
-    return result.rows[0] || null;
+  /**
+   * Find user by ID
+   */
+  static async findByIdWithProfile(id: number): Promise<User | null> {
+    try {
+      const user = await User.findByPk(id, {
+        include: [
+          {
+            model: Profile,
+            as: 'profile',
+            required: false,
+          },
+        ],
+      });
+      return user;
+    } catch (error) {
+      console.error('Error finding user by ID:', error);
+      throw new Error('Failed to find user');
+    }
   }
 
-  // Find user by email
+  /**
+   * Find user by email
+   */
   static async findByEmail(email: string): Promise<User | null> {
-    const result = await query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
-
-    return result.rows[0] || null;
+    try {
+      const user = await User.findOne({
+        where: { email },
+      });
+      return user;
+    } catch (error) {
+      console.error('Error finding user by email:', error);
+      throw new Error('Failed to find user');
+    }
   }
 
-  // Find user by username
+  /**
+   * Find user by username
+   */
   static async findByUsername(username: string): Promise<User | null> {
-    const result = await query(
-      'SELECT * FROM users WHERE username = $1',
-      [username]
-    );
-
-    return result.rows[0] || null;
+    try {
+      const user = await User.findOne({
+        where: { username },
+      });
+      return user;
+    } catch (error) {
+      console.error('Error finding user by username:', error);
+      throw new Error('Failed to find user');
+    }
   }
 
-  // Get all users with pagination
-  static async findAll(limit: number = 10, offset: number = 0): Promise<User[]> {
-    const result = await query(
-      `SELECT * FROM users
-       ORDER BY created_at DESC
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
-
-    return result.rows;
+  /**
+   * Get all users with pagination
+   */
+  static async findAllUsers(limit: number = 10, offset: number = 0): Promise<User[]> {
+    try {
+      const users = await User.findAll({
+        limit,
+        offset,
+        order: [['created_at', 'DESC']],
+        include: [
+          {
+            model: Profile,
+            as: 'profile',
+            required: false,
+          },
+        ],
+      });
+      return users;
+    } catch (error) {
+      console.error('Error finding all users:', error);
+      throw new Error('Failed to retrieve users');
+    }
   }
 
-  // Update user
-  static async update(id: number, userData: UpdateUserData): Promise<User | null> {
-    const fields: string[] = [];
-    const values: any[] = [];
-    let paramCount = 1;
+  /**
+   * Update user
+   */
+  static async updateUser(id: number, userData: UpdateUserData): Promise<User | null> {
+    try {
+      const [affectedRows] = await User.update(userData, {
+        where: { id },
+      });
 
-    // Dynamically build update query
-    Object.entries(userData).forEach(([key, value]) => {
-      if (value !== undefined) {
-        fields.push(`${key} = $${paramCount}`);
-        values.push(value);
-        paramCount++;
+      if (affectedRows === 0) {
+        return null;
       }
-    });
 
-    if (fields.length === 0) {
-      throw new Error('No fields to update');
+      const updatedUser = await User.findByPk(id);
+      return updatedUser;
+    } catch (error) {
+      console.error('Error updating user:', error);
+      throw new Error('Failed to update user');
     }
-
-    values.push(id);
-
-    const result = await query(
-      `UPDATE users
-       SET ${fields.join(', ')}
-       WHERE id = $${paramCount}
-       RETURNING *`,
-      values
-    );
-
-    return result.rows[0] || null;
   }
 
-  // Delete user (soft delete - mark as inactive)
-  static async softDelete(id: number): Promise<boolean> {
-    const result = await query(
-      'UPDATE users SET is_active = false WHERE id = $1',
-      [id]
-    );
-
-    return result.rowCount > 0;
+  /**
+   * Delete user (soft delete - mark as inactive)
+   */
+  static async softDeleteUser(id: number): Promise<boolean> {
+    try {
+      const [affectedRows] = await User.update(
+        { is_active: false },
+        { where: { id } }
+      );
+      return affectedRows > 0;
+    } catch (error) {
+      console.error('Error soft deleting user:', error);
+      throw new Error('Failed to soft delete user');
+    }
   }
 
-  // Delete user permanently
-  static async delete(id: number): Promise<boolean> {
-    const result = await query(
-      'DELETE FROM users WHERE id = $1',
-      [id]
-    );
-
-    return result.rowCount > 0;
+  /**
+   * Delete user permanently
+   */
+  static async deleteUser(id: number): Promise<boolean> {
+    try {
+      const deletedRows = await User.destroy({
+        where: { id },
+      });
+      return deletedRows > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw new Error('Failed to delete user');
+    }
   }
 
-  // Count total users
-  static async count(): Promise<number> {
-    const result = await query('SELECT COUNT(*) as count FROM users');
-    return parseInt(result.rows[0].count);
+  /**
+   * Count total users
+   */
+  static async countUsers(): Promise<number> {
+    try {
+      const count = await User.count();
+      return count;
+    } catch (error) {
+      console.error('Error counting users:', error);
+      throw new Error('Failed to count users');
+    }
   }
 
-  // Check if email exists
+  /**
+   * Check if email exists
+   */
   static async emailExists(email: string, excludeId?: number): Promise<boolean> {
-    let queryText = 'SELECT 1 FROM users WHERE email = $1';
-    const values: any[] = [email];
+    try {
+      const whereClause: any = { email };
 
-    if (excludeId) {
-      queryText += ' AND id != $2';
-      values.push(excludeId);
+      if (excludeId) {
+        whereClause.id = { [require('sequelize').Op.ne]: excludeId };
+      }
+
+      const user = await User.findOne({
+        where: whereClause,
+      });
+
+      return user !== null;
+    } catch (error) {
+      console.error('Error checking email existence:', error);
+      throw new Error('Failed to check email existence');
     }
-
-    const result = await query(queryText, values);
-    return result.rows.length > 0;
   }
 
-  // Check if username exists
+  /**
+   * Check if username exists
+   */
   static async usernameExists(username: string, excludeId?: number): Promise<boolean> {
-    let queryText = 'SELECT 1 FROM users WHERE username = $1';
-    const values: any[] = [username];
+    try {
+      const whereClause: any = { username };
 
-    if (excludeId) {
-      queryText += ' AND id != $2';
-      values.push(excludeId);
+      if (excludeId) {
+        whereClause.id = { [require('sequelize').Op.ne]: excludeId };
+      }
+
+      const user = await User.findOne({
+        where: whereClause,
+      });
+
+      return user !== null;
+    } catch (error) {
+      console.error('Error checking username existence:', error);
+      throw new Error('Failed to check username existence');
     }
-
-    const result = await query(queryText, values);
-    return result.rows.length > 0;
   }
 
-  // Update last login
+  /**
+   * Update last login
+   */
   static async updateLastLogin(id: number): Promise<void> {
-    await query(
-      'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [id]
-    );
-  }
-
-  // Get user with profile information
-  static async findWithProfile(id: number): Promise<any | null> {
-    const result = await query(`
-      SELECT
-        u.id, u.email, u.username, u.first_name, u.last_name,
-        u.profile_id, u.is_active, u.is_verified, u.avatar_url,
-        u.last_login_at, u.created_at, u.updated_at,
-        p.name as profile_name, p.description as profile_description,
-        p.permissions as profile_permissions
-      FROM users u
-      LEFT JOIN profiles p ON u.profile_id = p.id
-      WHERE u.id = $1
-    `, [id]);
-
-    if (result.rows.length === 0) {
-      return null;
+    try {
+      await User.update(
+        { last_login_at: new Date() },
+        { where: { id } }
+      );
+    } catch (error) {
+      console.error('Error updating last login:', error);
+      throw new Error('Failed to update last login');
     }
-
-    const user = result.rows[0];
-    return {
-      ...user,
-      profile: user.profile_name ? {
-        id: user.profile_id,
-        name: user.profile_name,
-        description: user.profile_description,
-        permissions: typeof user.profile_permissions === 'string'
-          ? JSON.parse(user.profile_permissions)
-          : user.profile_permissions
-      } : null
-    };
   }
 
-  // Assign profile to user
+  /**
+   * Get user with profile information
+   */
+  static async findWithProfile(id: number): Promise<any | null> {
+    try {
+      const user = await User.findByPk(id, {
+        include: [
+          {
+            model: Profile,
+            as: 'profile',
+            required: false,
+          },
+        ],
+      });
+
+      if (!user) {
+        return null;
+      }
+
+      return user.toJSON();
+    } catch (error) {
+      console.error('Error finding user with profile:', error);
+      throw new Error('Failed to find user with profile');
+    }
+  }
+
+  /**
+   * Assign profile to user
+   */
   static async assignProfile(userId: number, profileId: number): Promise<boolean> {
     try {
-      const result = await query(
-        'UPDATE users SET profile_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
-        [profileId, userId]
+      const [affectedRows] = await User.update(
+        { profile_id: profileId },
+        { where: { id: userId } }
       );
-      return result.rowCount > 0;
+      return affectedRows > 0;
     } catch (error) {
       console.error('Error assigning profile to user:', error);
       throw new Error('Failed to assign profile to user');
     }
   }
 
-  // Remove profile from user
+  /**
+   * Remove profile from user
+   */
   static async removeProfile(userId: number): Promise<boolean> {
     try {
-      const result = await query(
-        'UPDATE users SET profile_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-        [userId]
+      const [affectedRows] = await User.update(
+        { profile_id: undefined },
+        { where: { id: userId } }
       );
-      return result.rowCount > 0;
+      return affectedRows > 0;
     } catch (error) {
       console.error('Error removing profile from user:', error);
       throw new Error('Failed to remove profile from user');
     }
   }
 
-  // Check if user has specific permission
+  /**
+   * Check if user has specific permission
+   */
   static async hasPermission(userId: number, resource: string, action: string): Promise<boolean> {
     try {
-      const result = await query(`
-        SELECT p.permissions
-        FROM users u
-        JOIN profiles p ON u.profile_id = p.id
-        WHERE u.id = $1 AND u.is_active = true AND p.is_active = true
-      `, [userId]);
+      const user = await User.findOne({
+        where: { id: userId, is_active: true },
+        include: [
+          {
+            model: Profile,
+            as: 'profile',
+            required: true,
+            where: { is_active: true },
+          },
+        ],
+      });
 
-      if (result.rows.length === 0) {
+      if (!user || !user.profile) {
         return false;
       }
 
-      const permissions = typeof result.rows[0].permissions === 'string'
-        ? JSON.parse(result.rows[0].permissions)
-        : result.rows[0].permissions;
-
-      const resourcePermissions = permissions[resource];
-
-      if (!Array.isArray(resourcePermissions)) {
-        return false;
-      }
-
-      return resourcePermissions.includes(action);
+      return user.profile.hasPermission(resource, action);
     } catch (error) {
       console.error('Error checking user permission:', error);
       return false;
     }
   }
 }
+
+export default User;

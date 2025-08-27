@@ -1,8 +1,8 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import { config } from '../config';
-import { UserModel, CreateUserData } from '../models/User';
-import { ProfileModel } from '../models/Profile';
+import { User, CreateUserData } from '../models/User';
+import { Profile } from '../models/Profile';
 
 export interface LoginCredentials {
   email: string;
@@ -62,7 +62,7 @@ export class AuthService {
       }
 
       // Check if user already exists
-      const existingUser = await UserModel.findByEmail(email);
+      const existingUser = await User.findByEmail(email);
       if (existingUser) {
         return {
           success: false,
@@ -70,7 +70,7 @@ export class AuthService {
         };
       }
 
-      const existingUsername = await UserModel.findByUsername(username);
+      const existingUsername = await User.findByUsername(username);
       if (existingUsername) {
         return {
           success: false,
@@ -81,7 +81,7 @@ export class AuthService {
       // Get profile ID if profile_name is provided
       let profile_id: number | undefined;
       if (profile_name) {
-        const profile = await ProfileModel.findByName(profile_name);
+        const profile = await Profile.findByName(profile_name);
         if (!profile) {
           return {
             success: false,
@@ -91,7 +91,7 @@ export class AuthService {
         profile_id = profile.id;
       } else {
         // Default to 'user' profile if no profile specified
-        const defaultProfile = await ProfileModel.findByName('user');
+        const defaultProfile = await Profile.findByName('user');
         if (defaultProfile) {
           profile_id = defaultProfile.id;
         }
@@ -110,7 +110,7 @@ export class AuthService {
         profile_id
       };
 
-      const newUser = await UserModel.create(userData);
+      const newUser = await User.createUser(userData);
 
       // Generate token
       const token = this.generateToken({
@@ -121,7 +121,7 @@ export class AuthService {
       });
 
       // Get user with profile info
-      const userWithProfile = await UserModel.findWithProfile(newUser.id!);
+      const userWithProfile = await User.findWithProfile(newUser.id!);
 
       return {
         success: true,
@@ -163,7 +163,7 @@ export class AuthService {
       }
 
       // Find user by email
-      const user = await UserModel.findByEmail(email);
+      const user = await User.findByEmail(email);
       if (!user) {
         return {
           success: false,
@@ -189,7 +189,7 @@ export class AuthService {
       }
 
       // Update last login
-      await UserModel.updateLastLogin(user.id!);
+      await User.updateLastLogin(user.id!);
 
       // Generate token
       const token = this.generateToken({
@@ -200,7 +200,7 @@ export class AuthService {
       });
 
       // Get user with profile info
-      const userWithProfile = await UserModel.findWithProfile(user.id!);
+      const userWithProfile = await User.findWithProfile(user.id!);
 
       return {
         success: true,
@@ -267,7 +267,7 @@ export class AuthService {
    */
   static async validatePermission(userId: number, resource: string, action: string): Promise<boolean> {
     try {
-      return await UserModel.hasPermission(userId, resource, action);
+      return await User.hasPermission(userId, resource, action);
     } catch (error) {
       console.error('Permission validation error:', error);
       return false;
@@ -282,7 +282,7 @@ export class AuthService {
       const payload = this.verifyToken(token);
       if (!payload) return null;
 
-      const user = await UserModel.findWithProfile(payload.userId);
+      const user = await User.findWithProfile(payload.userId);
       if (!user || !user.is_active) return null;
 
       // Remove sensitive information

@@ -1,7 +1,7 @@
 import { Migration } from '../migrator';
 
 export const migration: Migration = {
-  id: '20250826212905_create_seeders_table',
+  id: '20250827171210_create_seeders_table',
   description: 'create seeders table',
   up: async (client) => {
     await client.query(`

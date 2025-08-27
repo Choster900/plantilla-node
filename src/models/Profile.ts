@@ -1,14 +1,17 @@
-import { query } from '../database/connection';
-
-export interface Profile {
-  id?: number;
-  name: string;
-  description?: string;
-  permissions: Record<string, string[]>;
-  is_active?: boolean;
-  created_at?: Date;
-  updated_at?: Date;
-}
+import {
+  Table,
+  Column,
+  Model,
+  DataType,
+  PrimaryKey,
+  AutoIncrement,
+  AllowNull,
+  Default,
+  CreatedAt,
+  UpdatedAt,
+  Unique,
+  HasMany,
+} from 'sequelize-typescript';
 
 export interface CreateProfileData {
   name: string;
@@ -24,27 +27,68 @@ export interface UpdateProfileData {
   is_active?: boolean;
 }
 
-export class ProfileModel {
+interface ProfileCreationAttributes {
+  name: string;
+  description?: string;
+  permissions: Record<string, string[]>;
+  is_active?: boolean;
+}
+
+@Table({
+  tableName: 'profiles',
+  timestamps: true,
+  underscored: true,
+})
+export class Profile extends Model<Profile, ProfileCreationAttributes> {
+  @PrimaryKey
+  @AutoIncrement
+  @Column(DataType.INTEGER)
+  id!: number;
+
+  @Unique
+  @AllowNull(false)
+  @Column(DataType.STRING(100))
+  name!: string;
+
+  @AllowNull(true)
+  @Column(DataType.TEXT)
+  description?: string;
+
+  @AllowNull(false)
+  @Column(DataType.JSONB)
+  permissions!: Record<string, string[]>;
+
+  @Default(true)
+  @AllowNull(false)
+  @Column(DataType.BOOLEAN)
+  is_active!: boolean;
+
+  @CreatedAt
+  @Column(DataType.DATE)
+  created_at!: Date;
+
+  @UpdatedAt
+  @Column(DataType.DATE)
+  updated_at!: Date;
+
+  @HasMany(() => require('./User').User, 'profile_id')
+  users?: any[];
+
   /**
    * Create a new profile
    */
-  static async create(profileData: CreateProfileData): Promise<Profile> {
+  static async createProfile(profileData: CreateProfileData): Promise<Profile> {
     try {
       const { name, description, permissions, is_active = true } = profileData;
 
-      const result = await query(
-        `INSERT INTO profiles (name, description, permissions, is_active)
-         VALUES ($1, $2, $3, $4)
-         RETURNING id, name, description, permissions, is_active, created_at, updated_at`,
-        [name, description, JSON.stringify(permissions), is_active]
-      );
+      const profile = await Profile.create({
+        name,
+        description,
+        permissions,
+        is_active,
+      });
 
-      return {
-        ...result.rows[0],
-        permissions: typeof result.rows[0].permissions === 'string'
-          ? JSON.parse(result.rows[0].permissions)
-          : result.rows[0].permissions
-      };
+      return profile;
     } catch (error) {
       console.error('Error creating profile:', error);
       throw new Error('Failed to create profile');
@@ -54,24 +98,20 @@ export class ProfileModel {
   /**
    * Find profile by ID
    */
-  static async findById(id: number): Promise<Profile | null> {
+  static async findByIdWithUsers(id: number): Promise<Profile | null> {
     try {
-      const result = await query(
-        'SELECT id, name, description, permissions, is_active, created_at, updated_at FROM profiles WHERE id = $1',
-        [id]
-      );
+      const profile = await Profile.findByPk(id, {
+        include: [
+          {
+            association: 'users',
+            attributes: ['id', 'email', 'username', 'first_name', 'last_name', 'is_active', 'created_at'],
+            where: { is_active: true },
+            required: false,
+          },
+        ],
+      });
 
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      const profile = result.rows[0];
-      return {
-        ...profile,
-        permissions: typeof profile.permissions === 'string'
-          ? JSON.parse(profile.permissions)
-          : profile.permissions
-      };
+      return profile;
     } catch (error) {
       console.error('Error finding profile by ID:', error);
       throw new Error('Failed to find profile');
@@ -83,22 +123,11 @@ export class ProfileModel {
    */
   static async findByName(name: string): Promise<Profile | null> {
     try {
-      const result = await query(
-        'SELECT id, name, description, permissions, is_active, created_at, updated_at FROM profiles WHERE name = $1',
-        [name]
-      );
+      const profile = await Profile.findOne({
+        where: { name },
+      });
 
-      if (result.rows.length === 0) {
-        return null;
-      }
-
-      const profile = result.rows[0];
-      return {
-        ...profile,
-        permissions: typeof profile.permissions === 'string'
-          ? JSON.parse(profile.permissions)
-          : profile.permissions
-      };
+      return profile;
     } catch (error) {
       console.error('Error finding profile by name:', error);
       throw new Error('Failed to find profile');
@@ -108,26 +137,20 @@ export class ProfileModel {
   /**
    * Get all profiles
    */
-  static async findAll(options?: { active_only?: boolean }): Promise<Profile[]> {
+  static async findAllProfiles(options?: { active_only?: boolean }): Promise<Profile[]> {
     try {
-      let queryText = 'SELECT id, name, description, permissions, is_active, created_at, updated_at FROM profiles';
-      const queryParams: any[] = [];
+      const whereClause: any = {};
 
       if (options?.active_only) {
-        queryText += ' WHERE is_active = $1';
-        queryParams.push(true);
+        whereClause.is_active = true;
       }
 
-      queryText += ' ORDER BY name ASC';
+      const profiles = await Profile.findAll({
+        where: whereClause,
+        order: [['name', 'ASC']],
+      });
 
-      const result = await query(queryText, queryParams);
-
-      return result.rows.map((profile: any) => ({
-        ...profile,
-        permissions: typeof profile.permissions === 'string'
-          ? JSON.parse(profile.permissions)
-          : profile.permissions
-      }));
+      return profiles;
     } catch (error) {
       console.error('Error finding all profiles:', error);
       throw new Error('Failed to retrieve profiles');
@@ -137,63 +160,18 @@ export class ProfileModel {
   /**
    * Update profile
    */
-  static async update(id: number, updateData: UpdateProfileData): Promise<Profile | null> {
+  static async updateProfile(id: number, updateData: UpdateProfileData): Promise<Profile | null> {
     try {
-      const fields: string[] = [];
-      const values: any[] = [];
-      let paramCounter = 1;
+      const [affectedRows] = await Profile.update(updateData, {
+        where: { id },
+      });
 
-      if (updateData.name !== undefined) {
-        fields.push(`name = $${paramCounter}`);
-        values.push(updateData.name);
-        paramCounter++;
-      }
-
-      if (updateData.description !== undefined) {
-        fields.push(`description = $${paramCounter}`);
-        values.push(updateData.description);
-        paramCounter++;
-      }
-
-      if (updateData.permissions !== undefined) {
-        fields.push(`permissions = $${paramCounter}`);
-        values.push(JSON.stringify(updateData.permissions));
-        paramCounter++;
-      }
-
-      if (updateData.is_active !== undefined) {
-        fields.push(`is_active = $${paramCounter}`);
-        values.push(updateData.is_active);
-        paramCounter++;
-      }
-
-      if (fields.length === 0) {
-        throw new Error('No fields to update');
-      }
-
-      fields.push(`updated_at = $${paramCounter}`);
-      values.push(new Date());
-      paramCounter++;
-
-      values.push(id);
-
-      const result = await query(
-        `UPDATE profiles SET ${fields.join(', ')} WHERE id = $${paramCounter}
-         RETURNING id, name, description, permissions, is_active, created_at, updated_at`,
-        values
-      );
-
-      if (result.rows.length === 0) {
+      if (affectedRows === 0) {
         return null;
       }
 
-      const profile = result.rows[0];
-      return {
-        ...profile,
-        permissions: typeof profile.permissions === 'string'
-          ? JSON.parse(profile.permissions)
-          : profile.permissions
-      };
+      const updatedProfile = await Profile.findByPk(id);
+      return updatedProfile;
     } catch (error) {
       console.error('Error updating profile:', error);
       throw new Error('Failed to update profile');
@@ -203,14 +181,14 @@ export class ProfileModel {
   /**
    * Delete profile (soft delete by setting is_active to false)
    */
-  static async softDelete(id: number): Promise<boolean> {
+  static async softDeleteProfile(id: number): Promise<boolean> {
     try {
-      const result = await query(
-        'UPDATE profiles SET is_active = false, updated_at = $1 WHERE id = $2',
-        [new Date(), id]
+      const [affectedRows] = await Profile.update(
+        { is_active: false },
+        { where: { id } }
       );
 
-      return result.rowCount > 0;
+      return affectedRows > 0;
     } catch (error) {
       console.error('Error soft deleting profile:', error);
       throw new Error('Failed to delete profile');
@@ -220,20 +198,28 @@ export class ProfileModel {
   /**
    * Delete profile permanently
    */
-  static async delete(id: number): Promise<boolean> {
+  static async deleteProfile(id: number): Promise<boolean> {
     try {
       // Check if profile is in use by any users
-      const usersWithProfile = await query(
-        'SELECT COUNT(*) as count FROM users WHERE profile_id = $1',
-        [id]
-      );
+      const usersCount = await Profile.count({
+        include: [
+          {
+            association: 'users',
+            required: true,
+          },
+        ],
+        where: { id },
+      });
 
-      if (parseInt(usersWithProfile.rows[0].count) > 0) {
+      if (usersCount > 0) {
         throw new Error('Cannot delete profile that is assigned to users');
       }
 
-      const result = await query('DELETE FROM profiles WHERE id = $1', [id]);
-      return result.rowCount > 0;
+      const deletedRows = await Profile.destroy({
+        where: { id },
+      });
+
+      return deletedRows > 0;
     } catch (error) {
       console.error('Error deleting profile:', error);
       throw new Error('Failed to delete profile');
@@ -243,9 +229,9 @@ export class ProfileModel {
   /**
    * Check if profile has specific permission
    */
-  static hasPermission(profile: Profile, resource: string, action: string): boolean {
+  hasPermission(resource: string, action: string): boolean {
     try {
-      const permissions = profile.permissions;
+      const permissions = this.permissions;
 
       if (!permissions || typeof permissions !== 'object') {
         return false;
@@ -265,22 +251,47 @@ export class ProfileModel {
   }
 
   /**
+   * Static method to check if profile has specific permission
+   */
+  static hasPermission(profile: Profile, resource: string, action: string): boolean {
+    return profile.hasPermission(resource, action);
+  }
+
+  /**
    * Get users assigned to a profile
+   */
+  async getProfileUsers(): Promise<any[]> {
+    try {
+      const users = await this.$get('users', {
+        attributes: ['id', 'email', 'username', 'first_name', 'last_name', 'is_active', 'created_at'],
+        where: { is_active: true },
+        order: [['created_at', 'DESC']],
+      });
+
+      return users || [];
+    } catch (error) {
+      console.error('Error getting users for profile:', error);
+      throw new Error('Failed to get users for profile');
+    }
+  }
+
+  /**
+   * Static method to get users for a profile
    */
   static async getUsers(profileId: number): Promise<any[]> {
     try {
-      const result = await query(
-        `SELECT id, email, username, first_name, last_name, is_active, created_at
-         FROM users
-         WHERE profile_id = $1 AND is_active = true
-         ORDER BY created_at DESC`,
-        [profileId]
-      );
+      const profile = await Profile.findByPk(profileId);
 
-      return result.rows;
+      if (!profile) {
+        throw new Error('Profile not found');
+      }
+
+      return await profile.getProfileUsers();
     } catch (error) {
       console.error('Error getting users for profile:', error);
       throw new Error('Failed to get users for profile');
     }
   }
 }
+
+export default Profile;

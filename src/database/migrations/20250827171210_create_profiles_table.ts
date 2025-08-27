@@ -1,7 +1,7 @@
 import { Migration } from '../migrator';
 
 export const migration: Migration = {
-  id: '20250826212905_create_profiles_table',
+  id: '20250827171210_create_profiles_table',
   description: 'create profiles table',
   up: async (client) => {
     await client.query(`

@@ -1,13 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { ProfileModel } from '../models/Profile';
+import { Profile } from '../models/Profile';
 
 const router = Router();
 
 // GET /api/profiles - Get all profiles (public for now)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const profiles = await ProfileModel.findAll();
-    
+    const profiles = await Profile.findAllProfiles();
+
     res.json({
       success: true,
       data: profiles
@@ -25,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const profileId = parseInt(req.params.id);
-    
+
     if (isNaN(profileId)) {
       return res.status(400).json({
         success: false,
@@ -33,8 +33,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const profile = await ProfileModel.findById(profileId);
-    
+    const profile = await Profile.findByIdWithUsers(profileId);
+
     if (!profile) {
       return res.status(404).json({
         success: false,
@@ -69,7 +69,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Check if profile with the same name already exists
-    const existingProfile = await ProfileModel.findByName(name);
+    const existingProfile = await Profile.findByName(name);
     if (existingProfile) {
       return res.status(400).json({
         success: false,
@@ -83,7 +83,7 @@ router.post('/', async (req: Request, res: Response) => {
       permissions: permissions || {}
     };
 
-    const newProfile = await ProfileModel.create(profileData);
+    const newProfile = await Profile.createProfile(profileData);
 
     res.status(201).json({
       success: true,

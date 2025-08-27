@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { UserModel } from '../models/User';
+import { User } from '../models/User';
 import bcrypt from 'bcrypt';
 
 const router = Router();
@@ -11,8 +11,8 @@ router.get('/', async (req: Request, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const offset = (page - 1) * limit;
 
-    const users = await UserModel.findAll(limit, offset);
-    const total = await UserModel.count();
+    const users = await User.findAllUsers(limit, offset);
+    const total = await User.countUsers();
     const totalPages = Math.ceil(total / limit);
 
     res.json({
@@ -38,7 +38,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const userId = parseInt(req.params.id);
-    
+
     if (isNaN(userId)) {
       return res.status(400).json({
         success: false,
@@ -46,8 +46,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    const user = await UserModel.findById(userId);
-    
+    const user = await User.findByIdWithProfile(userId);
+
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -82,7 +82,7 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     // Check if user already exists
-    const existingUser = await UserModel.findByEmail(email);
+    const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -102,7 +102,7 @@ router.post('/', async (req: Request, res: Response) => {
       profile_id: profile_id || null
     };
 
-    const newUser = await UserModel.create(userData);
+    const newUser = await User.createUser(userData);
 
     res.status(201).json({
       success: true,
