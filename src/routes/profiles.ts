@@ -1,34 +1,31 @@
 import { Router, Request, Response } from 'express';
-import { ProfileModel, CreateProfileData, UpdateProfileData } from '../models/Profile';
-import { UserModel } from '../models/User';
+import { ProfileModel } from '../models/Profile';
 
 const router = Router();
 
-// GET /api/profiles - Get all profiles
+// GET /api/profiles - Get all profiles (public for now)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const activeOnly = req.query.active_only === 'true';
-    const profiles = await ProfileModel.findAll({ active_only: activeOnly });
-
+    const profiles = await ProfileModel.findAll();
+    
     res.json({
       success: true,
-      data: profiles,
-      count: profiles.length
+      data: profiles
     });
   } catch (error) {
     console.error('Error fetching profiles:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch profiles'
+      message: 'Error fetching profiles'
     });
   }
 });
 
-// GET /api/profiles/:id - Get profile by ID
+// GET /api/profiles/:id - Get profile by ID (public for now)
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const profileId = parseInt(req.params.id);
-
+    
     if (isNaN(profileId)) {
       return res.status(400).json({
         success: false,
@@ -37,7 +34,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     }
 
     const profile = await ProfileModel.findById(profileId);
-
+    
     if (!profile) {
       return res.status(404).json({
         success: false,
@@ -53,87 +50,37 @@ router.get('/:id', async (req: Request, res: Response) => {
     console.error('Error fetching profile:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch profile'
+      message: 'Error fetching profile'
     });
   }
 });
 
-// GET /api/profiles/:id/users - Get users assigned to profile
-router.get('/:id/users', async (req: Request, res: Response) => {
-  try {
-    const profileId = parseInt(req.params.id);
-
-    if (isNaN(profileId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid profile ID'
-      });
-    }
-
-    const profile = await ProfileModel.findById(profileId);
-    if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profile not found'
-      });
-    }
-
-    const users = await ProfileModel.getUsers(profileId);
-
-    res.json({
-      success: true,
-      data: {
-        profile: {
-          id: profile.id,
-          name: profile.name,
-          description: profile.description
-        },
-        users: users
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching profile users:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch profile users'
-    });
-  }
-});
-
-// POST /api/profiles - Create new profile
+// POST /api/profiles - Create new profile (public for now)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, permissions, is_active } = req.body;
+    const { name, description, permissions } = req.body;
 
-    // Validation
-    if (!name || typeof name !== 'string') {
+    // Basic validation
+    if (!name) {
       return res.status(400).json({
         success: false,
-        message: 'Profile name is required and must be a string'
+        message: 'Profile name is required'
       });
     }
 
-    if (!permissions || typeof permissions !== 'object') {
-      return res.status(400).json({
-        success: false,
-        message: 'Permissions are required and must be an object'
-      });
-    }
-
-    // Check if profile name already exists
+    // Check if profile with the same name already exists
     const existingProfile = await ProfileModel.findByName(name);
     if (existingProfile) {
-      return res.status(409).json({
+      return res.status(400).json({
         success: false,
-        message: 'Profile name already exists'
+        message: 'Profile with this name already exists'
       });
     }
 
-    const profileData: CreateProfileData = {
+    const profileData = {
       name: name.trim(),
-      description: description?.trim() || null,
-      permissions,
-      is_active: is_active !== undefined ? is_active : true
+      description: description?.trim(),
+      permissions: permissions || {}
     };
 
     const newProfile = await ProfileModel.create(profileData);
@@ -147,287 +94,7 @@ router.post('/', async (req: Request, res: Response) => {
     console.error('Error creating profile:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to create profile'
-    });
-  }
-});
-
-// PUT /api/profiles/:id - Update profile
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
-    const profileId = parseInt(req.params.id);
-
-    if (isNaN(profileId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid profile ID'
-      });
-    }
-
-    const { name, description, permissions, is_active } = req.body;
-
-    // Check if profile exists
-    const existingProfile = await ProfileModel.findById(profileId);
-    if (!existingProfile) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profile not found'
-      });
-    }
-
-    // Check if new name conflicts with existing profile
-    if (name && name !== existingProfile.name) {
-      const nameConflict = await ProfileModel.findByName(name);
-      if (nameConflict) {
-        return res.status(409).json({
-          success: false,
-          message: 'Profile name already exists'
-        });
-      }
-    }
-
-    const updateData: UpdateProfileData = {};
-
-    if (name !== undefined) updateData.name = name.trim();
-    if (description !== undefined) updateData.description = description?.trim() || null;
-    if (permissions !== undefined) updateData.permissions = permissions;
-    if (is_active !== undefined) updateData.is_active = is_active;
-
-    if (Object.keys(updateData).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No fields to update'
-      });
-    }
-
-    const updatedProfile = await ProfileModel.update(profileId, updateData);
-
-    res.json({
-      success: true,
-      message: 'Profile updated successfully',
-      data: updatedProfile
-    });
-  } catch (error) {
-    console.error('Error updating profile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to update profile'
-    });
-  }
-});
-
-// DELETE /api/profiles/:id - Soft delete profile
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const profileId = parseInt(req.params.id);
-
-    if (isNaN(profileId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid profile ID'
-      });
-    }
-
-    // Check if profile exists
-    const existingProfile = await ProfileModel.findById(profileId);
-    if (!existingProfile) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profile not found'
-      });
-    }
-
-    // Check if there are users assigned to this profile
-    const users = await ProfileModel.getUsers(profileId);
-    if (users.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete profile that has users assigned to it',
-        data: {
-          assignedUsers: users.length
-        }
-      });
-    }
-
-    const deleted = await ProfileModel.softDelete(profileId);
-
-    if (deleted) {
-      res.json({
-        success: true,
-        message: 'Profile deactivated successfully'
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to deactivate profile'
-      });
-    }
-  } catch (error) {
-    console.error('Error deleting profile:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to deactivate profile'
-    });
-  }
-});
-
-// DELETE /api/profiles/:id/permanent - Permanently delete profile
-router.delete('/:id/permanent', async (req: Request, res: Response) => {
-  try {
-    const profileId = parseInt(req.params.id);
-
-    if (isNaN(profileId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid profile ID'
-      });
-    }
-
-    const deleted = await ProfileModel.delete(profileId);
-
-    if (deleted) {
-      res.json({
-        success: true,
-        message: 'Profile permanently deleted'
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to delete profile'
-      });
-    }
-  } catch (error) {
-    console.error('Error permanently deleting profile:', error);
-
-    if (error instanceof Error && error.message.includes('Cannot delete profile that is assigned to users')) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete profile that has users assigned to it'
-      });
-    }
-
-    res.status(500).json({
-      success: false,
-      message: 'Failed to delete profile'
-    });
-  }
-});
-
-// POST /api/profiles/:id/assign-user - Assign profile to user
-router.post('/:id/assign-user', async (req: Request, res: Response) => {
-  try {
-    const profileId = parseInt(req.params.id);
-    const { userId } = req.body;
-
-    if (isNaN(profileId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid profile ID'
-      });
-    }
-
-    if (!userId || isNaN(parseInt(userId))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid user ID is required'
-      });
-    }
-
-    // Check if profile exists
-    const profile = await ProfileModel.findById(profileId);
-    if (!profile) {
-      return res.status(404).json({
-        success: false,
-        message: 'Profile not found'
-      });
-    }
-
-    // Check if user exists
-    const user = await UserModel.findById(parseInt(userId));
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    const assigned = await UserModel.assignProfile(parseInt(userId), profileId);
-
-    if (assigned) {
-      res.json({
-        success: true,
-        message: 'Profile assigned to user successfully',
-        data: {
-          userId: parseInt(userId),
-          profileId: profileId,
-          profileName: profile.name
-        }
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to assign profile to user'
-      });
-    }
-  } catch (error) {
-    console.error('Error assigning profile to user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to assign profile to user'
-    });
-  }
-});
-
-// DELETE /api/profiles/:id/remove-user - Remove profile from user
-router.delete('/:id/remove-user', async (req: Request, res: Response) => {
-  try {
-    const profileId = parseInt(req.params.id);
-    const { userId } = req.body;
-
-    if (isNaN(profileId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid profile ID'
-      });
-    }
-
-    if (!userId || isNaN(parseInt(userId))) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid user ID is required'
-      });
-    }
-
-    // Check if user exists
-    const user = await UserModel.findById(parseInt(userId));
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    const removed = await UserModel.removeProfile(parseInt(userId));
-
-    if (removed) {
-      res.json({
-        success: true,
-        message: 'Profile removed from user successfully',
-        data: {
-          userId: parseInt(userId)
-        }
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: 'Failed to remove profile from user'
-      });
-    }
-  } catch (error) {
-    console.error('Error removing profile from user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to remove profile from user'
+      message: 'Error creating profile'
     });
   }
 });

@@ -4,7 +4,7 @@ import bcrypt from 'bcrypt';
 
 const router = Router();
 
-// GET /api/users - Get all users with pagination
+// GET /api/users - Get all users with pagination (public for now)
 router.get('/', async (req: Request, res: Response) => {
   try {
     const limit = parseInt(req.query.limit as string) || 10;
@@ -13,28 +13,23 @@ router.get('/', async (req: Request, res: Response) => {
 
     const users = await UserModel.findAll(limit, offset);
     const total = await UserModel.count();
-
-    // Remove sensitive fields
-    const sanitizedUsers = users.map(user => {
-      const { password_hash, ...userWithoutPassword } = user;
-      return userWithoutPassword;
-    });
+    const totalPages = Math.ceil(total / limit);
 
     res.json({
       success: true,
-      data: sanitizedUsers,
+      data: users,
       pagination: {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
+        totalPages
       }
     });
   } catch (error) {
-    console.error('Error getting users:', error);
+    console.error('Error fetching users:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Error fetching users'
     });
   }
 });
@@ -42,17 +37,17 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/users/:id - Get user by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-
-    if (isNaN(id)) {
+    const userId = parseInt(req.params.id);
+    
+    if (isNaN(userId)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid user ID'
       });
     }
 
-    const user = await UserModel.findById(id);
-
+    const user = await UserModel.findById(userId);
+    
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -60,192 +55,65 @@ router.get('/:id', async (req: Request, res: Response) => {
       });
     }
 
-    // Remove sensitive field
-    const { password_hash, ...userWithoutPassword } = user;
-
     res.json({
       success: true,
-      data: userWithoutPassword
+      data: user
     });
   } catch (error) {
-    console.error('Error getting user:', error);
+    console.error('Error fetching user:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
+      message: 'Error fetching user'
     });
   }
 });
 
-// POST /api/users - Create new user
+// POST /api/users - Create new user (public for now)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, username, password, first_name, last_name } = req.body;
+    const { email, username, password, first_name, last_name, profile_id } = req.body;
 
-    // Basic validations
+    // Basic validation
     if (!email || !username || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email, username and password are required'
+        message: 'Email, username, and password are required'
       });
     }
 
-    // Check if email already exists
-    const emailExists = await UserModel.emailExists(email);
-    if (emailExists) {
-      return res.status(409).json({
+    // Check if user already exists
+    const existingUser = await UserModel.findByEmail(email);
+    if (existingUser) {
+      return res.status(400).json({
         success: false,
-        message: 'Email is already registered'
-      });
-    }
-
-    // Check if username already exists
-    const usernameExists = await UserModel.usernameExists(username);
-    if (usernameExists) {
-      return res.status(409).json({
-        success: false,
-        message: 'Username is already in use'
+        message: 'User with this email already exists'
       });
     }
 
     // Hash password
-    const saltRounds = 12;
-    const password_hash = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create user
-    const newUser = await UserModel.create({
-      email,
-      username,
-      password_hash,
-      first_name,
-      last_name
-    });
+    const userData = {
+      email: email.toLowerCase().trim(),
+      username: username.trim(),
+      password_hash: hashedPassword,
+      first_name: first_name?.trim(),
+      last_name: last_name?.trim(),
+      profile_id: profile_id || null
+    };
 
-    // Remove sensitive field
-    const { password_hash: _, ...userWithoutPassword } = newUser;
+    const newUser = await UserModel.create(userData);
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
-      data: userWithoutPassword
+      data: newUser
     });
   } catch (error) {
     console.error('Error creating user:', error);
     res.status(500).json({
       success: false,
-      message: 'Internal server error'
-    });
-  }
-});
-
-// PUT /api/users/:id - Update user
-router.put('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-
-    if (isNaN(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
-    }
-
-    const { email, username, first_name, last_name, is_active, is_verified } = req.body;
-
-    // Check if user exists
-    const existingUser = await UserModel.findById(id);
-    if (!existingUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Check email conflicts (if being updated)
-    if (email && email !== existingUser.email) {
-      const emailExists = await UserModel.emailExists(email, id);
-      if (emailExists) {
-        return res.status(409).json({
-          success: false,
-          message: 'Email is already registered'
-        });
-      }
-    }
-
-    // Check username conflicts (if being updated)
-    if (username && username !== existingUser.username) {
-      const usernameExists = await UserModel.usernameExists(username, id);
-      if (usernameExists) {
-        return res.status(409).json({
-          success: false,
-          message: 'Username is already in use'
-        });
-      }
-    }
-
-    // Update user
-    const updatedUser = await UserModel.update(id, {
-      email,
-      username,
-      first_name,
-      last_name,
-      is_active,
-      is_verified
-    });
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    // Remove sensitive field
-    const { password_hash, ...userWithoutPassword } = updatedUser;
-
-    res.json({
-      success: true,
-      message: 'User updated successfully',
-      data: userWithoutPassword
-    });
-  } catch (error) {
-    console.error('Error updating user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
-    });
-  }
-});
-
-// DELETE /api/users/:id - Delete user (soft delete)
-router.delete('/:id', async (req: Request, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-
-    if (isNaN(id)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid user ID'
-      });
-    }
-
-    const success = await UserModel.softDelete(id);
-
-    if (!success) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'User deleted successfully'
-    });
-  } catch (error) {
-    console.error('Error deleting user:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error'
+      message: 'Error creating user'
     });
   }
 });

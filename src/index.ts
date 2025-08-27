@@ -3,6 +3,7 @@ import { config } from './config';
 import { testConnection } from './database/connection';
 import usersRouter from './routes/users';
 import profilesRouter from './routes/profiles';
+import authRouter from './routes/auth';
 
 const app = express();
 
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
+app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/profiles', profilesRouter);
 
@@ -68,12 +70,23 @@ const startServer = async () => {
       console.log(`Environment: ${config.env}`);
       console.log(`Database: ${dbConnected ? 'Connected' : 'Not connected'}`);
       console.log('\nAvailable API routes:');
+      console.log('');
+      console.log('Authentication:');
+      console.log('   POST   /api/auth/register     - Register new user');
+      console.log('   POST   /api/auth/login        - Login user');
+      console.log('   GET    /api/auth/me           - Get current user (auth required)');
+      console.log('   POST   /api/auth/refresh      - Refresh token (auth required)');
+      console.log('   POST   /api/auth/logout       - Logout user');
+      console.log('   GET    /api/auth/verify       - Verify token');
+      console.log('');
+      console.log('Users:');
       console.log('   GET    /api/users            - List users');
       console.log('   GET    /api/users/:id        - Get user by ID');
       console.log('   POST   /api/users            - Create user');
       console.log('   PUT    /api/users/:id        - Update user');
       console.log('   DELETE /api/users/:id        - Delete user');
       console.log('');
+      console.log('Profiles:');
       console.log('   GET    /api/profiles         - List profiles');
       console.log('   GET    /api/profiles/:id     - Get profile by ID');
       console.log('   POST   /api/profiles         - Create profile');
