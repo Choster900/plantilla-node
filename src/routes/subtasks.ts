@@ -277,34 +277,110 @@ router.delete('/:id', async (req: Request, res: Response) => {
 // PATCH /api/subtasks/:id/toggle - Toggle subtask done status
 router.patch('/:id/toggle', async (req: Request, res: Response) => {
     try {
-        const updated = await Subtask.toggleSubtask(req.params.id);
-        if (!updated) {
-            return res.status(404).json({ message: 'Subtask not found' });
+        const userId = req.user?.id;
+        const subtaskId = req.params.id;
+
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User not authenticated'
+            });
         }
-        res.json(updated);
+
+        // Verificar que la subtarea pertenece al usuario
+        const existingSubtask = await Subtask.findOne({
+            where: { id: subtaskId },
+            include: [{
+                model: Task,
+                as: 'task',
+                required: true,
+                include: [{
+                    model: List,
+                    as: 'list',
+                    where: { owner_id: userId },
+                    required: true
+                }]
+            }]
+        });
+
+        if (!existingSubtask) {
+            return res.status(404).json({
+                success: false,
+                message: 'Subtask not found or you do not have access to it'
+            });
+        }
+
+        const updated = await Subtask.toggleSubtask(subtaskId);
+        res.json({
+            success: true,
+            data: updated,
+            message: 'Subtask status toggled successfully'
+        });
     } catch (error) {
         console.error('Error toggling subtask:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
     }
 });
 
 // PATCH /api/subtasks/:id/position - Update subtask position
 router.patch('/:id/position', async (req: Request, res: Response) => {
     try {
+        const userId = req.user?.id;
+        const subtaskId = req.params.id;
         const { position } = req.body;
 
-        if (typeof position !== 'number') {
-            return res.status(400).json({ message: 'Position must be a number' });
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: 'User not authenticated'
+            });
         }
 
-        const updated = await Subtask.updateSubtaskPosition(req.params.id, position);
-        if (!updated) {
-            return res.status(404).json({ message: 'Subtask not found' });
+        if (typeof position !== 'number') {
+            return res.status(400).json({
+                success: false,
+                message: 'Position must be a number'
+            });
         }
-        res.json(updated);
+
+        // Verificar que la subtarea pertenece al usuario
+        const existingSubtask = await Subtask.findOne({
+            where: { id: subtaskId },
+            include: [{
+                model: Task,
+                as: 'task',
+                required: true,
+                include: [{
+                    model: List,
+                    as: 'list',
+                    where: { owner_id: userId },
+                    required: true
+                }]
+            }]
+        });
+
+        if (!existingSubtask) {
+            return res.status(404).json({
+                success: false,
+                message: 'Subtask not found or you do not have access to it'
+            });
+        }
+
+        const updated = await Subtask.updateSubtaskPosition(subtaskId, position);
+        res.json({
+            success: true,
+            data: updated,
+            message: 'Subtask position updated successfully'
+        });
     } catch (error) {
         console.error('Error updating subtask position:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error'
+        });
     }
 });
 
