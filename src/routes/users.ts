@@ -7,23 +7,12 @@ const router = Router();
 // GET /api/users - Get all users with pagination (public for now)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const limit = parseInt(req.query.limit as string) || 10;
-    const page = parseInt(req.query.page as string) || 1;
-    const offset = (page - 1) * limit;
-
-    const users = await User.findAllUsers(limit, offset);
-    const total = await User.countUsers();
-    const totalPages = Math.ceil(total / limit);
+    const users = await User.getAllUsers();
 
     res.json({
       success: true,
       data: users,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages
-      }
+      total: users.length
     });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -37,16 +26,17 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/users/:id - Get user by ID
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const userId = parseInt(req.params.id);
+    const userId = req.params.id;
 
-    if (isNaN(userId)) {
+    // Basic UUID validation
+    if (!userId || userId.length !== 36) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid user ID'
+        message: 'Invalid user ID format'
       });
     }
 
-    const user = await User.findByIdWithProfile(userId);
+    const user = await User.getUserById(userId);
 
     if (!user) {
       return res.status(404).json({
@@ -71,13 +61,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /api/users - Create new user (public for now)
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { email, username, password, first_name, last_name, profile_id } = req.body;
+    const { email, password, profile_id } = req.body;
 
     // Basic validation
-    if (!email || !username || !password) {
+    if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Email, username, and password are required'
+        message: 'Email and password are required'
       });
     }
 
@@ -95,10 +85,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     const userData = {
       email: email.toLowerCase().trim(),
-      username: username.trim(),
       password_hash: hashedPassword,
-      first_name: first_name?.trim(),
-      last_name: last_name?.trim(),
       profile_id: profile_id || null
     };
 
@@ -114,6 +101,107 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: 'Error creating user'
+    });
+  }
+});
+
+// PUT /api/users/:id - Update user
+router.put('/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+    const { email, password, profile_id } = req.body;
+
+    // Basic UUID validation
+    if (!userId || userId.length !== 36) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
+    const updateData: any = {};
+
+    if (email) {
+      // Check if email already exists for another user
+      const emailExists = await User.emailExists(email, userId);
+      if (emailExists) {
+        return res.status(400).json({
+          success: false,
+          message: 'Email already in use by another user'
+        });
+      }
+      updateData.email = email.toLowerCase().trim();
+    }
+
+    if (password) {
+      updateData.password_hash = await bcrypt.hash(password, 10);
+    }
+
+    if (profile_id !== undefined) {
+      updateData.profile_id = profile_id;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
+    }
+
+    const updatedUser = await User.updateUser(userId, updateData);
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: updatedUser
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user'
+    });
+  }
+});
+
+// DELETE /api/users/:id - Delete user
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = req.params.id;
+
+    // Basic UUID validation
+    if (!userId || userId.length !== 36) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user ID format'
+      });
+    }
+
+    const deleted = await User.deleteUser(userId);
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting user'
     });
   }
 });

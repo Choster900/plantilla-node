@@ -11,10 +11,7 @@ export interface LoginCredentials {
 
 export interface RegisterData {
   email: string;
-  username: string;
   password: string;
-  first_name?: string;
-  last_name?: string;
   profile_name?: string;
 }
 
@@ -24,11 +21,8 @@ export interface AuthResponse {
   data?: {
     token: string;
     user: {
-      id: number;
+      id: string;
       email: string;
-      username: string;
-      first_name?: string;
-      last_name?: string;
       profile?: {
         id: number;
         name: string;
@@ -39,9 +33,8 @@ export interface AuthResponse {
 }
 
 export interface TokenPayload {
-  userId: number;
+  userId: string;
   email: string;
-  username: string;
   profileId?: number;
 }
 
@@ -51,13 +44,13 @@ export class AuthService {
    */
   static async register(registerData: RegisterData): Promise<AuthResponse> {
     try {
-      const { email, username, password, first_name, last_name, profile_name } = registerData;
+      const { email, password, profile_name } = registerData;
 
       // Validate input
-      if (!email || !username || !password) {
+      if (!email || !password) {
         return {
           success: false,
-          message: 'Email, username, and password are required'
+          message: 'Email and password are required'
         };
       }
 
@@ -67,14 +60,6 @@ export class AuthService {
         return {
           success: false,
           message: 'User with this email already exists'
-        };
-      }
-
-      const existingUsername = await User.findByUsername(username);
-      if (existingUsername) {
-        return {
-          success: false,
-          message: 'Username is already taken'
         };
       }
 
@@ -103,10 +88,7 @@ export class AuthService {
       // Create user
       const userData: CreateUserData = {
         email,
-        username,
         password_hash,
-        first_name,
-        last_name,
         profile_id
       };
 
@@ -116,12 +98,11 @@ export class AuthService {
       const token = this.generateToken({
         userId: newUser.id!,
         email: newUser.email,
-        username: newUser.username,
         profileId: newUser.profile_id
       });
 
       // Get user with profile info
-      const userWithProfile = await User.findWithProfile(newUser.id!);
+      const userWithProfile = await User.getUserById(newUser.id!);
 
       return {
         success: true,
@@ -131,9 +112,6 @@ export class AuthService {
           user: {
             id: newUser.id!,
             email: newUser.email,
-            username: newUser.username,
-            first_name: newUser.first_name,
-            last_name: newUser.last_name,
             profile: userWithProfile?.profile || undefined
           }
         }
@@ -171,14 +149,6 @@ export class AuthService {
         };
       }
 
-      // Check if user is active
-      if (!user.is_active) {
-        return {
-          success: false,
-          message: 'Account is deactivated. Please contact support.'
-        };
-      }
-
       // Verify password
       const isPasswordValid = await bcrypt.compare(password, user.password_hash);
       if (!isPasswordValid) {
@@ -188,19 +158,15 @@ export class AuthService {
         };
       }
 
-      // Update last login
-      await User.updateLastLogin(user.id!);
-
       // Generate token
       const token = this.generateToken({
         userId: user.id!,
         email: user.email,
-        username: user.username,
         profileId: user.profile_id
       });
 
       // Get user with profile info
-      const userWithProfile = await User.findWithProfile(user.id!);
+      const userWithProfile = await User.getUserById(user.id!);
 
       return {
         success: true,
@@ -210,9 +176,6 @@ export class AuthService {
           user: {
             id: user.id!,
             email: user.email,
-            username: user.username,
-            first_name: user.first_name,
-            last_name: user.last_name,
             profile: userWithProfile?.profile || undefined
           }
         }
@@ -265,9 +228,17 @@ export class AuthService {
   /**
    * Validate user permissions
    */
-  static async validatePermission(userId: number, resource: string, action: string): Promise<boolean> {
+  static async validatePermission(userId: string, resource: string, action: string): Promise<boolean> {
     try {
-      return await User.hasPermission(userId, resource, action);
+      // For now, we'll implement a basic permission check
+      // You can expand this later with more sophisticated permission logic
+      const user = await User.getUserById(userId);
+      if (!user || !user.profile) return false;
+      
+      const permissions = user.profile.permissions;
+      if (!permissions[resource]) return false;
+      
+      return permissions[resource].includes(action);
     } catch (error) {
       console.error('Permission validation error:', error);
       return false;
@@ -282,11 +253,11 @@ export class AuthService {
       const payload = this.verifyToken(token);
       if (!payload) return null;
 
-      const user = await User.findWithProfile(payload.userId);
-      if (!user || !user.is_active) return null;
+      const user = await User.getUserById(payload.userId);
+      if (!user) return null;
 
       // Remove sensitive information
-      const { password_hash, ...userWithoutPassword } = user;
+      const { password_hash, ...userWithoutPassword } = user.toJSON();
       return userWithoutPassword;
     } catch (error) {
       console.error('Get user by token error:', error);

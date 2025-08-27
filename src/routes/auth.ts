@@ -32,10 +32,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const registerData: RegisterData = {
       email: email.toLowerCase().trim(),
-      username: username.trim(),
       password,
-      first_name: first_name?.trim(),
-      last_name: last_name?.trim(),
       profile_name: profile_name?.trim()
     };
 

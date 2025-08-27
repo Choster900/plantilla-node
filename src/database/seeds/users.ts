@@ -12,34 +12,22 @@ export class UsersSeeder extends BaseSeeder {
     const testUsers = [
       {
         email: 'admin@test.com',
-        username: 'admin',
         password: 'admin123',
-        first_name: 'Administrator',
-        last_name: 'System',
         profile_name: 'admin'
       },
       {
         email: 'editor@test.com',
-        username: 'editor',
         password: 'editor123',
-        first_name: 'Content',
-        last_name: 'Editor',
         profile_name: 'editor'
       },
       {
         email: 'user@test.com',
-        username: 'user',
         password: 'user123',
-        first_name: 'Test',
-        last_name: 'User',
         profile_name: 'user'
       },
       {
         email: 'viewer@test.com',
-        username: 'viewer',
         password: 'viewer123',
-        first_name: 'Read',
-        last_name: 'Only',
         profile_name: 'viewer'
       }
     ];
@@ -74,13 +62,8 @@ export class UsersSeeder extends BaseSeeder {
         // Create user
         const newUser = await User.create({
           email: userData.email,
-          username: userData.username,
           password_hash: hashedPassword,
-          first_name: userData.first_name,
-          last_name: userData.last_name,
-          profile_id: profile.id,
-          is_active: true,
-          is_verified: true
+          profile_id: profile.id
         });
 
         console.log(`User "${userData.email}" created successfully with ID: ${newUser.id}`);
