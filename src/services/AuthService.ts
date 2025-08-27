@@ -234,10 +234,10 @@ export class AuthService {
       // You can expand this later with more sophisticated permission logic
       const user = await User.getUserById(userId);
       if (!user || !user.profile) return false;
-      
+
       const permissions = user.profile.permissions;
       if (!permissions[resource]) return false;
-      
+
       return permissions[resource].includes(action);
     } catch (error) {
       console.error('Permission validation error:', error);

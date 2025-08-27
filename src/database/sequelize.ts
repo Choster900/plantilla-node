@@ -1,7 +1,11 @@
+import { List } from './../models/List';
 import { Sequelize } from 'sequelize-typescript';
 import { config } from '../config';
 import { User } from '../models/User';
 import { Profile } from '../models/Profile';
+import { Task } from '../models/Task';
+import { Subtask } from '../models/Subtask';
+
 
 export const sequelize = new Sequelize({
   dialect: 'postgres',
@@ -10,7 +14,7 @@ export const sequelize = new Sequelize({
   database: config.database.name,
   username: config.database.user,
   password: config.database.password,
-  models: [User, Profile],
+  models: [User, Profile, List, Task, Subtask],
   logging: config.env === 'development' ? console.log : false,
   pool: {
     max: 20,
